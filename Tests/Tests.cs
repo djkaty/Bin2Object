@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿// Copyright (c) 2017 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
+
+using System;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 using NUnit.Framework;
-using NUnit.Framework.Internal;
 using NoisyCowStudios.Bin2Object;
 
 namespace Tests

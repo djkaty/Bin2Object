@@ -7,4 +7,8 @@ See Tests\Tests.cs for usage examples.
 
 www.djkaty.com
 
-Coptright &copy; 2017 Katy Coe
+Copyright &copy; 2016 Perfare - https://github.com/Perfare/Il2CppDumper/
+
+Copyright &copy; 2016 Alican Cubukcuoglu - https://github.com/AlicanC/AlicanC-s-Modern-Warfare-2-Tool/
+
+Copyright &copy; 2017 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
