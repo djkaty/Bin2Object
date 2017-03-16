@@ -117,10 +117,10 @@ namespace NoisyCowStudios.Bin2Object
                     if (field == null)
                         throw new ArgumentException("Array field " + i.Name + " has invalid FieldName in ArrayLength attribute");
 
-                    var lengthPrimitive = field.GetValue(t);
+                    var lengthPrimitive = Convert.ToInt32(field.GetValue(t));
                     var us = GetType().GetMethod("ReadArray", new[] {typeof(int)});
                     var mi2 = us.MakeGenericMethod(i.FieldType.GetElementType());
-                    i.SetValue(t, mi2.Invoke(this, new[] { lengthPrimitive }));
+                    i.SetValue(t, mi2.Invoke(this, new object[] { lengthPrimitive }));
                 }
                 else {
                     var us = GetType().GetMethod("ReadObject", Type.EmptyTypes);
