@@ -10,5 +10,13 @@ namespace NoisyCowStudios.Bin2Object
     public class ArrayLengthAttribute : Attribute
     {
         public string FieldName { get; set; }
+        public int FixedSize { get; set; }
+    }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class StringAttribute : Attribute
+    {
+        public bool IsNullTerminated { get; set; }
+        public int FixedSize { get; set; }
     }
 }

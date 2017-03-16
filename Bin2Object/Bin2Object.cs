@@ -106,18 +106,38 @@ namespace NoisyCowStudios.Bin2Object
             var t = new T();
             foreach (var i in t.GetType().GetFields()) {
                 if (i.FieldType.FullName == "System.String") {
-                    i.SetValue(t, ReadNullTerminatedString());
+                    var attr = i.GetCustomAttribute<StringAttribute>(false);
+
+                    // No String attribute? Use a null-terminated string by default
+                    if (attr == null || attr.IsNullTerminated)
+                        i.SetValue(t, ReadNullTerminatedString());
+                    else {
+                        if (attr.FixedSize <= 0)
+                            throw new ArgumentException("String attribute for array field " + i.Name + " configuration invalid");
+                        i.SetValue(t, ReadFixedLengthString(attr.FixedSize));
+                    }
                 }
                 else if (i.FieldType.IsArray) {
                     var attr = i.GetCustomAttribute<ArrayLengthAttribute>(false);
                     if (attr == null)
                         throw new InvalidOperationException("Array field " + i.Name + " must have ArrayLength attribute");
 
-                    var field = type.GetField(attr.FieldName);
-                    if (field == null)
-                        throw new ArgumentException("Array field " + i.Name + " has invalid FieldName in ArrayLength attribute");
+                    int lengthPrimitive;
 
-                    var lengthPrimitive = Convert.ToInt32(field.GetValue(t));
+                    if (attr.FieldName != null) {
+                        var field = type.GetField(attr.FieldName);
+                        if (field == null)
+                            throw new ArgumentException("Array field " + i.Name +
+                                                        " has invalid FieldName in ArrayLength attribute");
+                        lengthPrimitive = Convert.ToInt32(field.GetValue(t));
+                    }
+                    else if (attr.FixedSize > 0) {
+                        lengthPrimitive = attr.FixedSize;
+                    }
+                    else {
+                        throw new ArgumentException("ArrayLength attribute for array field " + i.Name + " configuration invalid");
+                    }
+
                     var us = GetType().GetMethod("ReadArray", new[] {typeof(int)});
                     var mi2 = us.MakeGenericMethod(i.FieldType.GetElementType());
                     i.SetValue(t, mi2.Invoke(this, new object[] { lengthPrimitive }));
@@ -154,6 +174,22 @@ namespace NoisyCowStudios.Bin2Object
             byte b;
             while ((b = ReadByte()) != 0)
                 bytes.Add(b);
+            return encoding?.GetString(bytes.ToArray()) ?? Encoding.GetString(bytes.ToArray());
+        }
+
+        public string ReadFixedLengthString(long addr, int length, Encoding encoding = null) {
+            Position = addr;
+            return ReadFixedLengthString(length, encoding);
+        }
+
+        public string ReadFixedLengthString(int length, Encoding encoding = null) {
+            byte[] b = ReadArray<byte>(length);
+            List<byte> bytes = new List<byte>();
+            foreach (var c in b)
+                if (c == 0)
+                    break;
+                else
+                    bytes.Add(c);
             return encoding?.GetString(bytes.ToArray()) ?? Encoding.GetString(bytes.ToArray());
         }
     }

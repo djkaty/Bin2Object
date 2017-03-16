@@ -13,15 +13,28 @@ namespace Tests
     {
         public int a;
         public short b;
+        // No String attribute specified - use null-terminated by default
         public string c;
         public byte d;
     }
 
-    class TestObjectWithArray
+    class TestObjectWithArrays
     {
         public int numberOfItems;
         [ArrayLength(FieldName = "numberOfItems")]
         public ushort[] itemArray;
+        [ArrayLength(FixedSize = 5)]
+        public byte[] fiveItems;
+    }
+
+    class TestObjectWithStrings
+    {
+        [String(FixedSize = 8)]
+        public string eightCharString;
+        [String(FixedSize = 4)]
+        public string fourCharString;
+        [String(IsNullTerminated = true)]
+        public string nullTerminatedString;
     }
 #pragma warning restore CS0649
 
@@ -164,18 +177,36 @@ namespace Tests
         }
 
         [Test]
-        public void TestObjectWithArray() {
-            var testData = new byte[] {0x03, 0x00, 0x00, 0x00, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A};
+        public void TestObjectWithArrays() {
+            var testData = new byte[]
+                {0x03, 0x00, 0x00, 0x00, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E};
 
             using (var stream = new MemoryStream(testData))
             using (var reader = new BinaryObjectReader(stream)) {
-                var obj = reader.ReadObject<TestObjectWithArray>();
+                var obj = reader.ReadObject<TestObjectWithArrays>();
 
                 Assert.AreEqual(3, obj.numberOfItems);
                 Assert.AreEqual(3, obj.itemArray.Length);
                 Assert.AreEqual(0x1234, obj.itemArray[0]);
                 Assert.AreEqual(0x5678, obj.itemArray[1]);
                 Assert.AreEqual(0x9ABC, obj.itemArray[2]);
+                for (int i = 0; i < 5; i++)
+                    Assert.AreEqual(i + 0x0A, obj.fiveItems[i]);
+            }
+        }
+
+        [Test]
+        public void TestObjectWithStrings() {
+            var testData = new byte[]
+                {0x41, 0x42, 0x43, 0x44, 0x45, 0x00, 0x00, 0x00, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x00};
+
+            using (var stream = new MemoryStream(testData))
+            using (var reader = new BinaryObjectReader(stream)) {
+                var obj = reader.ReadObject<TestObjectWithStrings>();
+
+                Assert.AreEqual("ABCDE", obj.eightCharString);
+                Assert.AreEqual("FGHI", obj.fourCharString);
+                Assert.AreEqual("JK", obj.nullTerminatedString);
             }
         }
     }
