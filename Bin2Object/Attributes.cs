@@ -19,4 +19,11 @@ namespace NoisyCowStudios.Bin2Object
         public bool IsNullTerminated { get; set; }
         public int FixedSize { get; set; }
     }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class VersionAttribute : Attribute
+    {
+        public int Min { get; set; } = -1;
+        public int Max { get; set; } = -1;
+    }
 }

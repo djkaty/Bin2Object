@@ -36,6 +36,18 @@ namespace Tests
         [String(IsNullTerminated = true)]
         public string nullTerminatedString;
     }
+
+    class TestObjectWithVersioning
+    {
+        public int allVersionsItem;
+        [Version(Min = 2)]
+        public string version2Item;
+        [Version(Max = 1)]
+        public string version1Item;
+        [Version(Min = 1, Max = 2)]
+        [String(IsNullTerminated = true)] // adding a 2nd attribute to prove it works
+        public string version1And2Item;
+    }
 #pragma warning restore CS0649
 
     [TestFixture]
@@ -208,6 +220,24 @@ namespace Tests
                 Assert.AreEqual("FGHI", obj.fourCharString);
                 Assert.AreEqual("JK", obj.nullTerminatedString);
             }
+        }
+
+        [Test]
+        public void TestObjectWithVersioning() {
+            var testData = new byte[]
+                {0x34, 0x12, 0x00, 0x00, 0x41, 0x00, 0x42, 0x00, 0x43, 0x00};
+
+            for (int v = 1; v <= 3; v++)
+                using (var stream = new MemoryStream(testData))
+                using (var reader = new BinaryObjectReader(stream)) {
+                    reader.Version = v;
+                    var obj = reader.ReadObject<TestObjectWithVersioning>();
+
+                    Assert.AreEqual(0x1234, obj.allVersionsItem);
+                    Assert.AreEqual((v == 1 ? "A" : null), obj.version1Item);
+                    Assert.AreEqual((v >= 2 ? "A" : null), obj.version2Item);
+                    Assert.AreEqual((v < 3 ? "B" : null), obj.version1And2Item);
+                }
         }
     }
 }

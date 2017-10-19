@@ -30,6 +30,8 @@ namespace NoisyCowStudios.Bin2Object
 
         public Endianness Endianness { get; set; }
 
+        public int Version { get; set; } = 1;
+
         public Encoding Encoding { get; set; } = Encoding.UTF8;
 
         public override byte[] ReadBytes(int count) {
@@ -105,6 +107,15 @@ namespace NoisyCowStudios.Bin2Object
 
             var t = new T();
             foreach (var i in t.GetType().GetFields()) {
+                // Only process fields for our selected object versioning
+                var versionAttr = i.GetCustomAttribute<VersionAttribute>(false);
+                if (versionAttr != null) {
+                    if (versionAttr.Min != -1 && versionAttr.Min > Version)
+                        continue;
+                    if (versionAttr.Max != -1 && versionAttr.Max < Version)
+                        continue;
+                }
+
                 if (i.FieldType.FullName == "System.String") {
                     var attr = i.GetCustomAttribute<StringAttribute>(false);
 
