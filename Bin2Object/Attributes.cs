@@ -23,7 +23,7 @@ namespace NoisyCowStudios.Bin2Object
     [AttributeUsage(AttributeTargets.Field)]
     public class VersionAttribute : Attribute
     {
-        public int Min { get; set; } = -1;
-        public int Max { get; set; } = -1;
+        public double Min { get; set; } = -1;
+        public double Max { get; set; } = -1;
     }
 }

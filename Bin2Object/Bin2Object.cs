@@ -30,7 +30,7 @@ namespace NoisyCowStudios.Bin2Object
 
         public Endianness Endianness { get; set; }
 
-        public int Version { get; set; } = 1;
+        public double Version { get; set; } = 1;
 
         public Encoding Encoding { get; set; } = Encoding.UTF8;
 
