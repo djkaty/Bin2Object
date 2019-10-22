@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2017 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
+﻿// Copyright (c) 2017-2019 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
 
 using System;
 using System.IO;
@@ -47,6 +47,14 @@ namespace Tests
         [Version(Min = 1, Max = 2)]
         [String(IsNullTerminated = true)] // adding a 2nd attribute to prove it works
         public string version1And2Item;
+    }
+
+    class TestObjectWithPrimitiveMapping
+    {
+        public int int1;
+        public int int2;
+        public bool bool1;
+        public long long1;
     }
 #pragma warning restore CS0649
 
@@ -238,6 +246,26 @@ namespace Tests
                     Assert.AreEqual((v >= 2 ? "A" : null), obj.version2Item);
                     Assert.AreEqual((v < 3 ? "B" : null), obj.version1And2Item);
                 }
+        }
+
+        [Test]
+        public void TestMappedPrimitives() {
+            var testData = new byte[]
+                {0x01, 0x02, 0x01, 0x87, 0x65, 0x43, 0x21};
+
+            using (var stream = new MemoryStream(testData))
+            using (var reader = new BinaryObjectReader(stream)) {
+                reader.PrimitiveMappings.Add(typeof(int), typeof(byte));
+                reader.PrimitiveMappings.Add(typeof(bool), typeof(byte));
+                reader.PrimitiveMappings.Add(typeof(long), typeof(int));
+
+                var obj = reader.ReadObject<TestObjectWithPrimitiveMapping>();
+
+                Assert.AreEqual(obj.int1, 1);
+                Assert.AreEqual(obj.int2, 2);
+                Assert.AreEqual(obj.bool1, true);
+                Assert.AreEqual(obj.long1, 0x21436587);
+            }
         }
     }
 }

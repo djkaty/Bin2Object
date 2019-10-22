@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2016 Perfare - https://github.com/Perfare/Il2CppDumper/
 // Copyright (c) 2016 Alican Çubukçuoğlu - https://github.com/AlicanC/AlicanC-s-Modern-Warfare-2-Tool/
-// Copyright (c) 2017 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
+// Copyright (c) 2017-2019 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +27,9 @@ namespace NoisyCowStudios.Bin2Object
             get => BaseStream.Position;
             set => BaseStream.Position = value;
         }
+
+        // Allows you to specify types which should be read as different types in the stream
+        public Dictionary<Type, Type> PrimitiveMappings { get; } = new Dictionary<Type, Type>();
 
         public Endianness Endianness { get; set; }
 
@@ -74,6 +77,14 @@ namespace NoisyCowStudios.Bin2Object
 
             if (ti.IsPrimitive) {
                 object obj;
+
+                // Checked for mapped primitive types
+                var mapping = (from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == type.Name select m.Value).FirstOrDefault();
+                if (mapping != null) {
+                    var mappedReader = (from m in this.GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
+                    return (T) Convert.ChangeType(mappedReader?.Invoke(this, null), typeof(T));
+                }
+
                 switch (type.Name) {
                     case "Int64":
                         obj = ReadInt64();
