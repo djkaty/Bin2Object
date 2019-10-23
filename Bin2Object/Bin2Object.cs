@@ -54,6 +54,46 @@ namespace NoisyCowStudios.Bin2Object
 
         public override ushort ReadUInt16() => BitConverter.ToUInt16(ReadBytes(2), 0);
 
+        public long ReadInt64(long addr) {
+            Position = addr;
+            return ReadInt64();
+        }
+
+        public ulong ReadUInt64(long addr) {
+            Position = addr;
+            return ReadUInt64();
+        }
+
+        public int ReadInt32(long addr) {
+            Position = addr;
+            return ReadInt32();
+        }
+
+        public uint ReadUInt32(long addr) {
+            Position = addr;
+            return ReadUInt32();
+        }
+
+        public short ReadInt16(long addr) {
+            Position = addr;
+            return ReadInt16();
+        }
+
+        public ushort ReadUInt16(long addr) {
+            Position = addr;
+            return ReadUInt16();
+        }
+
+        public byte ReadByte(long addr) {
+            Position = addr;
+            return ReadByte();
+        }
+
+        public bool ReadBoolean(long addr) {
+            Position = addr;
+            return ReadBoolean();
+        }
+
         public T ReadObject<T>(long addr) where T : new() {
             Position = addr;
             return ReadObject<T>();
