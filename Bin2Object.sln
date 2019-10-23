@@ -1,11 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26228.4
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29411.108
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bin2Object", "Bin2Object\Bin2Object.csproj", "{865AA871-F000-4794-A28A-17EAB5D53579}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Bin2Object", "Bin2Object\Bin2Object.csproj", "{865AA871-F000-4794-A28A-17EAB5D53579}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{D5EEAFD0-6721-4482-97A3-B7A1FDE300AE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{865AA871-F000-4794-A28A-17EAB5D53579} = {865AA871-F000-4794-A28A-17EAB5D53579}
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6531D379-7A7E-4C66-B98F-C1E7D4F83009}"
 	ProjectSection(SolutionItems) = preProject
@@ -30,5 +33,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7734C402-03EE-47BE-A869-058DB5683DF9}
 	EndGlobalSection
 EndGlobal
