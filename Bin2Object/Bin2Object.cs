@@ -42,29 +42,17 @@ namespace NoisyCowStudios.Bin2Object
             return (Endianness == Endianness.Little ? bytes : bytes.Reverse().ToArray());
         }
 
-        public override long ReadInt64() {
-            return BitConverter.ToInt64(ReadBytes(8), 0);
-        }
+        public override long ReadInt64() => BitConverter.ToInt64(ReadBytes(8), 0);
+        
+        public override ulong ReadUInt64() => BitConverter.ToUInt64(ReadBytes(8), 0);
 
-        public override ulong ReadUInt64() {
-            return BitConverter.ToUInt64(ReadBytes(8), 0);
-        }
+        public override int ReadInt32() => BitConverter.ToInt32(ReadBytes(4), 0);
 
-        public override int ReadInt32() {
-            return BitConverter.ToInt32(ReadBytes(4), 0);
-        }
+        public override uint ReadUInt32() => BitConverter.ToUInt32(ReadBytes(4), 0);
 
-        public override uint ReadUInt32() {
-            return BitConverter.ToUInt32(ReadBytes(4), 0);
-        }
+        public override short ReadInt16() => BitConverter.ToInt16(ReadBytes(2), 0);
 
-        public override short ReadInt16() {
-            return BitConverter.ToInt16(ReadBytes(2), 0);
-        }
-
-        public override ushort ReadUInt16() {
-            return BitConverter.ToUInt16(ReadBytes(2), 0);
-        }
+        public override ushort ReadUInt16() => BitConverter.ToUInt16(ReadBytes(2), 0);
 
         public T ReadObject<T>(long addr) where T : new() {
             Position = addr;
@@ -76,51 +64,31 @@ namespace NoisyCowStudios.Bin2Object
             var ti = type.GetTypeInfo();
 
             if (ti.IsPrimitive) {
-                object obj;
-
                 // Checked for mapped primitive types
-                var mapping = (from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == type.Name select m.Value).FirstOrDefault();
-                if (mapping != null) {
+                if ((from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == type.Name select m.Value).FirstOrDefault() is Type mapping) {
                     var mappedReader = (from m in this.GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
                     return (T) Convert.ChangeType(mappedReader?.Invoke(this, null), typeof(T));
                 }
 
-                switch (type.Name) {
-                    case "Int64":
-                        obj = ReadInt64();
-                        break;
-                    case "UInt64":
-                        obj = ReadUInt64();
-                        break;
-                    case "Int32":
-                        obj = ReadInt32();
-                        break;
-                    case "UInt32":
-                        obj = ReadUInt32();
-                        break;
-                    case "Int16":
-                        obj = ReadInt16();
-                        break;
-                    case "UInt16":
-                        obj = ReadUInt16();
-                        break;
-                    case "Byte":
-                        obj = ReadByte();
-                        break;
-                    case "Boolean":
-                        obj = ReadBoolean();
-                        break;
-                    default:
-                        throw new ArgumentException("Unsupported primitive type specified: " + type.FullName);
-                }
-                return (T)obj;
-            }
+                // Unmapped primitive (eliminating obj causes Visual Studio 16.3.5 to crash)
+                object obj = type.Name switch {
+                    "Int64" => ReadInt64(),
+                    "UInt64" => ReadUInt64(),
+                    "Int32" => ReadInt32(),
+                    "UInt32" => ReadUInt32(),
+                    "Int16" => ReadInt16(),
+                    "UInt16" => ReadUInt16(),
+                    "Byte" => ReadByte(),
+                    "Boolean" => ReadBoolean(),
+                    _ => throw new ArgumentException("Unsupported primitive type specified: " + type.FullName)
+                };
+				return (T) obj;
+			}
 
             var t = new T();
             foreach (var i in t.GetType().GetFields()) {
                 // Only process fields for our selected object versioning
-                var versionAttr = i.GetCustomAttribute<VersionAttribute>(false);
-                if (versionAttr != null) {
+                if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr) {
                     if (versionAttr.Min != -1 && versionAttr.Min > Version)
                         continue;
                     if (versionAttr.Max != -1 && versionAttr.Max < Version)
@@ -140,17 +108,14 @@ namespace NoisyCowStudios.Bin2Object
                     }
                 }
                 else if (i.FieldType.IsArray) {
-                    var attr = i.GetCustomAttribute<ArrayLengthAttribute>(false);
-                    if (attr == null)
+                    var attr = i.GetCustomAttribute<ArrayLengthAttribute>(false) ??
                         throw new InvalidOperationException("Array field " + i.Name + " must have ArrayLength attribute");
 
                     int lengthPrimitive;
 
                     if (attr.FieldName != null) {
-                        var field = type.GetField(attr.FieldName);
-                        if (field == null)
-                            throw new ArgumentException("Array field " + i.Name +
-                                                        " has invalid FieldName in ArrayLength attribute");
+                        var field = type.GetField(attr.FieldName) ??
+                            throw new ArgumentException("Array field " + i.Name + " has invalid FieldName in ArrayLength attribute");
                         lengthPrimitive = Convert.ToInt32(field.GetValue(t));
                     }
                     else if (attr.FixedSize > 0) {
