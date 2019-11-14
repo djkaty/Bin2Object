@@ -19,6 +19,9 @@ namespace NoisyCowStudios.Bin2Object
 
     public class BinaryObjectReader : BinaryReader
     {
+        // Generic method cache to dramatically speed up repeated calls to ReadObject<T> with the same T
+        private Dictionary<string, MethodInfo> readObjectGenericCache = new Dictionary<string, MethodInfo>();
+
         public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little) : base(stream) {
             Endianness = endianness;
         }
@@ -170,8 +173,11 @@ namespace NoisyCowStudios.Bin2Object
                     i.SetValue(t, mi2.Invoke(this, new object[] { lengthPrimitive }));
                 }
                 else {
-                    var us = GetType().GetMethod("ReadObject", Type.EmptyTypes);
-                    var mi2 = us.MakeGenericMethod(i.FieldType);
+                    if (!readObjectGenericCache.TryGetValue(i.FieldType.FullName, out MethodInfo mi2)) {
+                        var us = GetType().GetMethod("ReadObject", Type.EmptyTypes);
+                        mi2 = us.MakeGenericMethod(i.FieldType);
+                        readObjectGenericCache.Add(i.FieldType.FullName, mi2);
+                    }
                     i.SetValue(t, mi2.Invoke(this, null));
                 }
             }
