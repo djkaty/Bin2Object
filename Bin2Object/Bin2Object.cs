@@ -22,6 +22,9 @@ namespace NoisyCowStudios.Bin2Object
         // Generic method cache to dramatically speed up repeated calls to ReadObject<T> with the same T
         private Dictionary<string, MethodInfo> readObjectGenericCache = new Dictionary<string, MethodInfo>();
 
+        // VersionAttribute cache to dramatically speed up repeated calls to ReadObject<T> with the same T
+        private Dictionary<Type, Dictionary<FieldInfo, (double Min, double Max)>> readObjectVersionCache = new Dictionary<Type, Dictionary<FieldInfo, (double, double)>>();
+
         public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little) : base(stream) {
             Endianness = endianness;
         }
@@ -129,14 +132,24 @@ namespace NoisyCowStudios.Bin2Object
 			}
 
             var t = new T();
-            foreach (var i in t.GetType().GetFields()) {
+
+            // First time caching
+            if (!readObjectVersionCache.TryGetValue(type, out var cachedFields)) {
+                var fields = new Dictionary<FieldInfo, (double, double)>();
+                foreach (var i in type.GetFields())
+                    if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr)
+                        fields.Add(i, (versionAttr.Min, versionAttr.Max));
+                    else
+                        fields.Add(i, (-1, -1));
+                readObjectVersionCache.Add(type, fields);
+            }
+
+            foreach (var (i, version) in readObjectVersionCache[type]) {
                 // Only process fields for our selected object versioning
-                if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr) {
-                    if (versionAttr.Min != -1 && versionAttr.Min > Version)
-                        continue;
-                    if (versionAttr.Max != -1 && versionAttr.Max < Version)
-                        continue;
-                }
+                if (version.Min != -1 && version.Min > Version)
+                    continue;
+                if (version.Max != -1 && version.Max < Version)
+                    continue;
 
                 if (i.FieldType.FullName == "System.String") {
                     var attr = i.GetCustomAttribute<StringAttribute>(false);
