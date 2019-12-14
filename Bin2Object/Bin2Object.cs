@@ -25,10 +25,15 @@ namespace NoisyCowStudios.Bin2Object
         // VersionAttribute cache to dramatically speed up repeated calls to ReadObject<T> with the same T
         private Dictionary<Type, Dictionary<FieldInfo, (double Min, double Max)>> readObjectVersionCache = new Dictionary<Type, Dictionary<FieldInfo, (double, double)>>();
 
+        // Thread synchronization objects (for thread safety)
+        private object readLock = new object();
+
+        // Initialization
         public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little) : base(stream) {
             Endianness = endianness;
         }
 
+        // Position in the stream
         public long Position {
             get => BaseStream.Position;
             set => BaseStream.Position = value;
@@ -61,48 +66,66 @@ namespace NoisyCowStudios.Bin2Object
         public override ushort ReadUInt16() => BitConverter.ToUInt16(ReadBytes(2), 0);
 
         public long ReadInt64(long addr) {
-            Position = addr;
-            return ReadInt64();
+            lock (readLock) {
+                Position = addr;
+                return ReadInt64();
+            }
         }
 
         public ulong ReadUInt64(long addr) {
-            Position = addr;
-            return ReadUInt64();
+            lock (readLock) {
+                Position = addr;
+                return ReadUInt64();
+            }
         }
 
         public int ReadInt32(long addr) {
-            Position = addr;
-            return ReadInt32();
+            lock (readLock) {
+                Position = addr;
+                return ReadInt32();
+            }
         }
 
         public uint ReadUInt32(long addr) {
-            Position = addr;
-            return ReadUInt32();
+            lock (readLock) {
+                Position = addr;
+                return ReadUInt32();
+            }
         }
 
         public short ReadInt16(long addr) {
-            Position = addr;
-            return ReadInt16();
+            lock (readLock) {
+                Position = addr;
+                return ReadInt16();
+            }
         }
 
         public ushort ReadUInt16(long addr) {
-            Position = addr;
-            return ReadUInt16();
+            lock (readLock) {
+                Position = addr;
+                return ReadUInt16();
+            }
         }
 
         public byte ReadByte(long addr) {
-            Position = addr;
-            return ReadByte();
+            lock (readLock) {
+                Position = addr;
+                return ReadByte();
+            }
         }
 
         public bool ReadBoolean(long addr) {
-            Position = addr;
-            return ReadBoolean();
+            lock (readLock) {
+                Position = addr;
+                return ReadBoolean();
+            }
         }
 
         public T ReadObject<T>(long addr) where T : new() {
-            Position = addr;
-            return ReadObject<T>();
+            lock (readLock) {
+                Position = addr;
+                return ReadObject<T>();
+            }
         }
 
         public T ReadObject<T>() where T : new() {
@@ -198,8 +221,10 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         public T[] ReadArray<T>(long addr, int count) where T : new() {
-            Position = addr;
-            return ReadArray<T>(count);
+            lock (readLock) {
+                Position = addr;
+                return ReadArray<T>(count);
+            }
         }
 
         public T[] ReadArray<T>(int count) where T : new() {
@@ -211,8 +236,10 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         public string ReadNullTerminatedString(long addr, Encoding encoding = null) {
-            Position = addr;
-            return ReadNullTerminatedString(encoding);
+            lock (readLock) {
+                Position = addr;
+                return ReadNullTerminatedString(encoding);
+            }
         }
 
         public string ReadNullTerminatedString(Encoding encoding = null) {
@@ -224,8 +251,10 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         public string ReadFixedLengthString(long addr, int length, Encoding encoding = null) {
-            Position = addr;
-            return ReadFixedLengthString(length, encoding);
+            lock (readLock) {
+                Position = addr;
+                return ReadFixedLengthString(length, encoding);
+            }
         }
 
         public string ReadFixedLengthString(int length, Encoding encoding = null) {
