@@ -135,7 +135,7 @@ namespace NoisyCowStudios.Bin2Object
             if (ti.IsPrimitive) {
                 // Checked for mapped primitive types
                 if ((from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == type.Name select m.Value).FirstOrDefault() is Type mapping) {
-                    var mappedReader = (from m in this.GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
+                    var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
                     return (T) Convert.ChangeType(mappedReader?.Invoke(this, null), typeof(T));
                 }
 
@@ -174,7 +174,8 @@ namespace NoisyCowStudios.Bin2Object
                 if (version.Max != -1 && version.Max < Version)
                     continue;
 
-                if (i.FieldType.FullName == "System.String") {
+                // String
+                if (i.FieldType == typeof(string)) {
                     var attr = i.GetCustomAttribute<StringAttribute>(false);
 
                     // No String attribute? Use a null-terminated string by default
@@ -186,6 +187,8 @@ namespace NoisyCowStudios.Bin2Object
                         i.SetValue(t, ReadFixedLengthString(attr.FixedSize));
                     }
                 }
+
+                // Array
                 else if (i.FieldType.IsArray) {
                     var attr = i.GetCustomAttribute<ArrayLengthAttribute>(false) ??
                         throw new InvalidOperationException("Array field " + i.Name + " must have ArrayLength attribute");
@@ -208,6 +211,32 @@ namespace NoisyCowStudios.Bin2Object
                     var mi2 = us.MakeGenericMethod(i.FieldType.GetElementType());
                     i.SetValue(t, mi2.Invoke(this, new object[] { lengthPrimitive }));
                 }
+
+                // Primitive type
+                // This is unnecessary but saves on many generic Invoke calls which are really slow
+                else if (i.FieldType.IsPrimitive) {
+                    // Checked for mapped primitive types
+                    if ((from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == i.FieldType.Name select m.Value).FirstOrDefault() is Type mapping) {
+                        var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
+                        i.SetValue(t, mappedReader?.Invoke(this, null));
+                    }
+                    else {
+                        // Unmapped primitive type
+                        i.SetValue(t, i.FieldType.Name switch {
+                            "Int64" => ReadInt64(),
+                            "UInt64" => ReadUInt64(),
+                            "Int32" => ReadInt32(),
+                            "UInt32" => ReadUInt32(),
+                            "Int16" => ReadInt16(),
+                            "UInt16" => ReadUInt16(),
+                            "Byte" => ReadByte(),
+                            "Boolean" => ReadBoolean(),
+                            _ => throw new ArgumentException("Unsupported primitive type specified: " + i.FieldType.FullName)
+                        });
+                    }
+                }
+
+                // Object
                 else {
                     if (!readObjectGenericCache.TryGetValue(i.FieldType.FullName, out MethodInfo mi2)) {
                         var us = GetType().GetMethod("ReadObject", Type.EmptyTypes);
