@@ -1,6 +1,6 @@
 ﻿// Copyright (c) 2016 Perfare - https://github.com/Perfare/Il2CppDumper/
 // Copyright (c) 2016 Alican Çubukçuoğlu - https://github.com/AlicanC/AlicanC-s-Modern-Warfare-2-Tool/
-// Copyright (c) 2017-2019 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
+// Copyright (c) 2017-2020 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
 
 using System;
 using System.Collections.Generic;
@@ -64,6 +64,13 @@ namespace NoisyCowStudios.Bin2Object
         public override short ReadInt16() => BitConverter.ToInt16(ReadBytes(2), 0);
 
         public override ushort ReadUInt16() => BitConverter.ToUInt16(ReadBytes(2), 0);
+
+        public byte[] ReadBytes(long addr, int count) {
+            lock (readLock) {
+                Position = addr;
+                return ReadBytes(count);
+            }
+        }
 
         public long ReadInt64(long addr) {
             lock (readLock) {
