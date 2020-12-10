@@ -11,12 +11,6 @@ using System.Text;
 
 namespace NoisyCowStudios.Bin2Object
 {
-    public enum Endianness
-    {
-        Little,
-        Big
-    }
-
     public class BinaryObjectReader : BinaryReader
     {
         // Generic method cache to dramatically speed up repeated calls to ReadObject<T> with the same T
@@ -40,6 +34,7 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         // Allows you to specify types which should be read as different types in the stream
+        // Key: type in object; Value: type in stream
         public Dictionary<Type, Type> PrimitiveMappings { get; } = new Dictionary<Type, Type>();
 
         public Endianness Endianness { get; set; }
@@ -223,9 +218,10 @@ namespace NoisyCowStudios.Bin2Object
                 // This is unnecessary but saves on many generic Invoke calls which are really slow
                 else if (i.FieldType.IsPrimitive) {
                     // Checked for mapped primitive types
-                    if ((from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == i.FieldType.Name select m.Value).FirstOrDefault() is Type mapping) {
-                        var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
-                        i.SetValue(t, mappedReader?.Invoke(this, null));
+                    var mapping = (from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == i.FieldType.Name select m).FirstOrDefault();
+                    if (!mapping.Equals(default(KeyValuePair<Type,Type>))) {
+                        var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping.Value && !m.GetParameters().Any() select m).FirstOrDefault();
+                        i.SetValue(t, Convert.ChangeType(mappedReader?.Invoke(this, null), mapping.Key));
                     }
                     else {
                         // Unmapped primitive type
