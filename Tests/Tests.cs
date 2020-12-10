@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using NUnit.Framework;
 using NoisyCowStudios.Bin2Object;
+using System.Linq;
 
 namespace Tests
 {
@@ -41,7 +42,7 @@ namespace Tests
     {
         public int allVersionsItem;
         [Version(Min = 2)]
-        public string version2Item;
+        public string version2AndHigherItem;
         [Version(Max = 1)]
         public string version1Item;
         [Version(Min = 1, Max = 2)]
@@ -116,7 +117,7 @@ namespace Tests
         }
 
         [Test]
-        public void TestString() {
+        public void TestNullTerminatedString() {
             var testData = new byte[] {0x41, 0x42, 0x43, 0x44, 0x00}; // ABCD\0
 
             using (var stream = new MemoryStream(testData))
@@ -243,7 +244,7 @@ namespace Tests
 
                     Assert.AreEqual(0x1234, obj.allVersionsItem);
                     Assert.AreEqual((v == 1 ? "A" : null), obj.version1Item);
-                    Assert.AreEqual((v >= 2 ? "A" : null), obj.version2Item);
+                    Assert.AreEqual((v >= 2 ? "A" : null), obj.version2AndHigherItem);
                     Assert.AreEqual((v < 3 ? "B" : null), obj.version1And2Item);
                 }
         }
@@ -266,6 +267,205 @@ namespace Tests
                 Assert.AreEqual(obj.bool1, true);
                 Assert.AreEqual(obj.long1, 0x21436587);
             }
+        }
+
+        [Test]
+        public void TestWriterPrimitives() {
+            var expected = new byte[]
+                { 0x01, 0x02, 0x03,
+                  0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,
+                  0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+                  0x78, 0x56, 0x34, 0x12, 0x98, 0xba, 0xdc, 0xfe,
+                  0x34, 0x12, 0xdc, 0xfe, 0xcc, 0x01 };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.WriteEndianBytes(new byte[] { 0x01, 0x02, 0x03 });
+                writer.Write((long) 0x0123456789abcdef);
+                writer.Write((ulong) 0xffeeddccbbaa9988);
+                writer.Write((int) 0x12345678);
+                writer.Write((uint) 0xfedcba98);
+                writer.Write((short) 0x1234);
+                writer.Write((ushort) 0xfedc);
+                writer.Write((byte) 0xcc);
+                writer.Write(true);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterStrings() {
+            var expected = new byte[]
+                { 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00,
+                  0x77, 0x6f, 0x72, 0x6c, 0x64, 0x00,
+                  0x74, 0x65, 0x73, 0x74,
+                  0x74, 0x65, 0x73, 0x74, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.WriteNullTerminatedString("hello");
+                writer.WriteNullTerminatedString("world");
+                writer.WriteFixedLengthString("test");
+                writer.WriteFixedLengthString("test", 10);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterObject([Values(Endianness.Little, Endianness.Big)] Endianness endianness) {
+            var expected =
+                endianness == Endianness.Little? new byte[]
+                { 0x78, 0x56, 0x34, 0x12, 0x34, 0x12, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0xff }
+
+                : new byte[]
+                { 0x12, 0x34, 0x56, 0x78, 0x12, 0x34, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0xff };
+
+            var obj = new TestObject {
+                a = 0x12345678,
+                b = 0x1234,
+                c = "hello",
+                d = 0xff
+            };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream, endianness)) {
+                writer.WriteObject(obj);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterArray() {
+            var expected = new byte[] { 0x34, 0x12, 0x78, 0x56, 0xff, 0xff };
+
+            var testData = new short[] { 0x1234, 0x5678, -1 };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.WriteArray(testData);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterArrayOfObject([Values(Endianness.Little, Endianness.Big)] Endianness endianness) {
+            byte[] expected;
+
+            if (endianness == Endianness.Little)
+                expected = new byte[] {
+                    0x04, 0x03, 0x02, 0x01, 0x34, 0x12, 0x41, 0x42, 0x43, 0x44, 0x00, 0x99,
+                    0x05, 0x03, 0x02, 0x01, 0x35, 0x12, 0x41, 0x42, 0x43, 0x45, 0x00, 0x9A
+                };
+            else {
+                expected = new byte[] {
+                    0x01, 0x02, 0x03, 0x04, 0x12, 0x34, 0x41, 0x42, 0x43, 0x44, 0x00, 0x99,
+                    0x01, 0x02, 0x03, 0x05, 0x12, 0x35, 0x41, 0x42, 0x43, 0x45, 0x00, 0x9A,
+                };
+            }
+
+            var testData = new TestObject[] {
+                new TestObject { a = 0x01020304, b = 0x1234, c = "ABCD", d = 0x99 },
+                new TestObject { a = 0x01020305, b = 0x1235, c = "ABCE", d = 0x9A }
+            };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream, endianness)) {
+                writer.WriteArray(testData);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterObjectWithArrays() {
+            var expected = new byte[]
+                {0x03, 0x00, 0x00, 0x00, 0x34, 0x12, 0x78, 0x56, 0xBC, 0x9A, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E};
+
+            var testData = new TestObjectWithArrays {
+                numberOfItems = 3,
+                itemArray = new ushort[] { 0x1234, 0x5678, 0x9ABC },
+                fiveItems = new byte[] { 0x0A, 0x0B, 0x0C, 0x0D, 0x0E }
+            };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.WriteObject(testData);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterObjectWithStrings() {
+            var expected = new byte[]
+                {0x41, 0x42, 0x43, 0x44, 0x45, 0x00, 0x00, 0x00, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x00};
+
+            var testData = new TestObjectWithStrings {
+                eightCharString = "ABCDE",
+                fourCharString = "FGHI",
+                nullTerminatedString = "JK"
+            };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.WriteObject(testData);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
+        }
+
+        [Test]
+        public void TestWriterObjectWithVersioning() {
+            var expected = new byte[][] {
+                new byte[] {0x34, 0x12, 0x00, 0x00, 0x41, 0x00, 0x43, 0x00 },
+                new byte[] {0x34, 0x12, 0x00, 0x00, 0x42, 0x00, 0x43, 0x00 },
+                new byte[] {0x34, 0x12, 0x00, 0x00, 0x42, 0x00 }
+            };
+
+            var testData = new TestObjectWithVersioning {
+                allVersionsItem = 0x1234,
+                version1Item = "A",
+                version2AndHigherItem = "B",
+                version1And2Item = "C"
+            };
+
+            for (int v = 1; v <= 3; v++)
+                using (var stream = new MemoryStream()) {
+                    using (var writer = new BinaryObjectWriter(stream)) {
+                        writer.Version = v;
+                        writer.WriteObject(testData);
+                    }
+                    var bytes = stream.ToArray();
+                    Assert.That(Enumerable.SequenceEqual(bytes, expected[v - 1]));
+                }
+        }
+
+        [Test]
+        public void TestWriterMappedPrimitives() {
+            var expected = new byte[]
+                {0x01, 0x02, 0x01, 0x87, 0x65, 0x43, 0x21};
+
+            var testData = new TestObjectWithPrimitiveMapping {
+                int1 = 1,
+                int2 = 2,
+                bool1 = true,
+                long1 = 0x21436587
+            };
+
+            using var stream = new MemoryStream();
+            using (var writer = new BinaryObjectWriter(stream)) {
+                writer.PrimitiveMappings.Add(typeof(int), typeof(byte));
+                writer.PrimitiveMappings.Add(typeof(bool), typeof(byte));
+                writer.PrimitiveMappings.Add(typeof(long), typeof(int));
+
+                writer.WriteObject(testData);
+            }
+            var bytes = stream.ToArray();
+            Assert.That(Enumerable.SequenceEqual(bytes, expected));
         }
     }
 }
