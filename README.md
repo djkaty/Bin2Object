@@ -1,7 +1,7 @@
 # Bin2Object
-A BinaryReader which can deserialize arbitrary binary formats into objects.
+A BinaryReader and BinaryWriter which can serialize and deserialize arbitrary binary formats into objects and vice versa.
 
-Built against .NET Standard 2.1 (.NET Core 3.0).
+Built against .NET Standard 2.1 (.NET Core 3.1).
 
 See Tests\Tests.cs for usage examples.
 
