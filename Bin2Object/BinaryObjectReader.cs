@@ -23,7 +23,7 @@ namespace NoisyCowStudios.Bin2Object
         private object readLock = new object();
 
         // Initialization
-        public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little) : base(stream) {
+        public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little, bool leaveOpen = false) : base(stream, Encoding.Default, leaveOpen) {
             Endianness = endianness;
         }
 

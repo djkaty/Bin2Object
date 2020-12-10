@@ -21,7 +21,7 @@ namespace NoisyCowStudios.Bin2Object
         private object writeLock = new object();
 
         // Initialization
-        public BinaryObjectWriter(Stream stream, Endianness endianness = Endianness.Little) : base(stream) {
+        public BinaryObjectWriter(Stream stream, Endianness endianness = Endianness.Little, bool leaveOpen = false) : base(stream, Encoding.Default, leaveOpen) {
             Endianness = endianness;
         }
 
