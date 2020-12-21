@@ -19,6 +19,17 @@ namespace Tests
         public byte d;
     }
 
+    class TestMappedObject
+    {
+        public string c;
+
+        public int e;   // Field does not exist in target
+
+        public short a; // Map from a shorter primitive type
+        public ulong d; // Map from a longer primitive type
+        public short b;
+    }
+
     class TestObjectWithArrays
     {
         public int numberOfItems;
@@ -267,6 +278,26 @@ namespace Tests
                 Assert.AreEqual(obj.bool1, true);
                 Assert.AreEqual(obj.long1, 0x21436587);
             }
+        }
+
+        [Test]
+        public void TestMappedObject() {
+
+            var testData = new byte[]
+                { 0x41, 0x42, 0x43, 0x44, 0x00, 0xCC, 0xCC, 0xCC, 0xCC, 0x02, 0x01,
+                  0x99, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x34, 0x12 };
+
+            using var stream = new MemoryStream(testData);
+            using var reader = new BinaryObjectReader(stream);
+
+            reader.ObjectMappings.Add(typeof(TestObject), typeof(TestMappedObject));
+
+            var obj = reader.ReadObject<TestObject>();
+
+            Assert.AreEqual(0x0102, obj.a);
+            Assert.AreEqual(0x1234, obj.b);
+            Assert.That("ABCD" == obj.c);
+            Assert.AreEqual(0x99, obj.d);
         }
 
         [Test]

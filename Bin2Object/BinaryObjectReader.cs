@@ -38,9 +38,14 @@ namespace NoisyCowStudios.Bin2Object
             set => BaseStream.Position = value;
         }
 
-        // Allows you to specify types which should be read as different types in the stream
+        // Allows you to specify primitive types which should be read as different types in the stream
         // Key: type in object; Value: type in stream
         public Dictionary<string, Type> PrimitiveMappings { get; } = new Dictionary<string, Type>();
+
+        // Allows you to specify object types which should be read as different types in the stream
+        // The fields of the read object will be copied to the fields of the target object with matching names
+        // Key: object type to return; Value: object type to read from stream
+        public Dictionary<Type, Type> ObjectMappings { get; } = new Dictionary<Type, Type>();
 
         public Endianness Endianness { get; set; }
 
@@ -158,13 +163,46 @@ namespace NoisyCowStudios.Bin2Object
             };
             return obj;
         }
+
+        // Copy matching named fields from one object to another
+        // Fields in the source not in the target and vice versa are ignored
+        private T MapObject<T>(object from) where T : new() {
+            var t = new T();
+
+            var fromType = from.GetType();
+            var toTypeFields = typeof(T).GetFields();
+
+            // Iterate source fields            
+            foreach (var f in fromType.GetFields()) {
+
+                // Find target field with matching name - ignore the rest
+                if (toTypeFields.FirstOrDefault(tf => tf.Name == f.Name) is FieldInfo targetField) {
+                    targetField.SetValue(t, Convert.ChangeType(f.GetValue(from), targetField.FieldType));
+                }
+            }
+            return t;
+        }
+
         public T ReadObject<T>() where T : new() {
 
             var type = typeof(T);
 
+            // Object is actually a primitive
             if (type.IsPrimitive) {
                 return (T) ReadPrimitive(type);
 			}
+
+            // Check for object mapping
+            if (ObjectMappings.TryGetValue(type, out var streamType)) {
+                if (!readObjectGenericCache.TryGetValue(streamType.FullName, out MethodInfo mi2)) {
+                    var us = GetType().GetMethod("ReadObject", Type.EmptyTypes);
+                    mi2 = us.MakeGenericMethod(streamType);
+                    readObjectGenericCache.Add(streamType.FullName, mi2);
+                }
+                var obj = mi2.Invoke(this, null);
+
+                return MapObject<T>(obj);
+            }
 
             var t = new T();
 
