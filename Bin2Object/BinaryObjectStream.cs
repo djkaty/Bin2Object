@@ -10,8 +10,8 @@ namespace NoisyCowStudios.Bin2Object
     // Combined BinaryObjectReader and BinaryObjectWriter that works with a MemoryStream
     public class BinaryObjectStream : MemoryStream {
         // The reader and writer
-        private BinaryObjectReader Reader { get; }
-        private BinaryObjectWriter Writer { get; }
+        public BinaryObjectReader Reader { get; }
+        public BinaryObjectWriter Writer { get; }
 
         public Endianness Endianness {
             get => Reader.Endianness;
