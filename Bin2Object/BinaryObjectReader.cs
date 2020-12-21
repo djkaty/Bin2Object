@@ -252,8 +252,34 @@ namespace NoisyCowStudios.Bin2Object
 
         public T[] ReadArray<T>(int count) where T : new() {
             T[] t = new T[count];
-            for (int i = 0; i < count; i++) {
-                t[i] = ReadObject<T>();
+
+            if (!typeof(T).IsPrimitive) {
+                for (int i = 0; i < count; i++)
+                    t[i] = ReadObject<T>();
+            } else {
+                var type = typeof(T);
+
+                // Checked for mapped primitive types
+                if (PrimitiveMappings.TryGetValue(type.Name, out Type mapping)) {
+                    var mappedReader = readMethodCache[mapping.Name];
+
+                    for (var i = 0; i < count; i++)
+                        t[i] = (T) Convert.ChangeType(mappedReader.Invoke(this, null), type);
+                } else {
+                    // Unmapped primitive (eliminating obj causes Visual Studio 16.3.5 to crash)
+                    for (var i = 0; i < count; i++)
+                        t[i] = (T) (type.Name switch {
+                            "Int64" => (object) ReadInt64(),
+                            "UInt64" => ReadUInt64(),
+                            "Int32" => ReadInt32(),
+                            "UInt32" => ReadUInt32(),
+                            "Int16" => ReadInt16(),
+                            "UInt16" => ReadUInt16(),
+                            "Byte" => ReadByte(),
+                            "Boolean" => ReadBoolean() ? 1ul : 0ul,
+                            _ => throw new ArgumentException("Unsupported primitive type specified: " + type.FullName)
+                        });
+                }
             }
             return t;
         }
