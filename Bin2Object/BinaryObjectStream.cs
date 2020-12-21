@@ -43,6 +43,11 @@ namespace NoisyCowStudios.Bin2Object
             Writer.PrimitiveMappings.Add(objType, streamType);
         }
 
+        // Add an object mapping to the reader
+        public void AddObjectMapping(Type objType, Type streamType) {
+            Reader.ObjectMappings.Add(objType, streamType);
+        }
+
         // Create reader/writer
         public BinaryObjectStream(byte[] bytes, Endianness endianness = Endianness.Little, bool leaveOpen = false) : base(bytes) {
             Reader = new BinaryObjectReader(this, endianness, leaveOpen);
