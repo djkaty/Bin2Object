@@ -256,9 +256,9 @@ namespace Tests
 
             using (var stream = new MemoryStream(testData))
             using (var reader = new BinaryObjectReader(stream)) {
-                reader.PrimitiveMappings.Add(typeof(int), typeof(byte));
-                reader.PrimitiveMappings.Add(typeof(bool), typeof(byte));
-                reader.PrimitiveMappings.Add(typeof(long), typeof(int));
+                reader.PrimitiveMappings.Add(typeof(int).Name, typeof(byte));
+                reader.PrimitiveMappings.Add(typeof(bool).Name, typeof(byte));
+                reader.PrimitiveMappings.Add(typeof(long).Name, typeof(int));
 
                 var obj = reader.ReadObject<TestObjectWithPrimitiveMapping>();
 
