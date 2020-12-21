@@ -210,7 +210,9 @@ namespace NoisyCowStudios.Bin2Object
             if (!readObjectVersionCache.TryGetValue(type, out var cachedFields)) {
                 var fields = new Dictionary<FieldInfo, (double, double)>();
                 foreach (var i in type.GetFields())
-                    if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr)
+                    if (i.GetCustomAttribute<SkipWhenReadingAttribute>(false) is SkipWhenReadingAttribute)
+                        fields.Add(i, (-2, -2));
+                    else if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr)
                         fields.Add(i, (versionAttr.Min, versionAttr.Max));
                     else
                         fields.Add(i, (-1, -1));
@@ -218,6 +220,10 @@ namespace NoisyCowStudios.Bin2Object
             }
 
             foreach (var (i, version) in readObjectVersionCache[type]) {
+                // Skip fields with SkipWhenReading set
+                if (version == (-2, -2))
+                    continue;
+
                 // Only process fields for our selected object versioning
                 if (version.Min != -1 && version.Min > Version)
                     continue;

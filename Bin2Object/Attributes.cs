@@ -26,4 +26,7 @@ namespace NoisyCowStudios.Bin2Object
         public double Min { get; set; } = -1;
         public double Max { get; set; } = -1;
     }
+
+    [AttributeUsage(AttributeTargets.Field)]
+    public class SkipWhenReadingAttribute : Attribute { }
 }
