@@ -13,6 +13,9 @@ namespace NoisyCowStudios.Bin2Object
 {
     public class BinaryObjectReader : BinaryReader
     {
+        // Method cache for primitive mappings
+        private Dictionary<string, MethodInfo> readMethodCache { get; }
+
         // Generic method cache to dramatically speed up repeated calls to ReadObject<T> with the same T
         private Dictionary<string, MethodInfo> readObjectGenericCache = new Dictionary<string, MethodInfo>();
 
@@ -25,6 +28,8 @@ namespace NoisyCowStudios.Bin2Object
         // Initialization
         public BinaryObjectReader(Stream stream, Endianness endianness = Endianness.Little, bool leaveOpen = false) : base(stream, Encoding.Default, leaveOpen) {
             Endianness = endianness;
+
+            readMethodCache = typeof(BinaryObjectReader).GetMethods().Where(m => m.Name.StartsWith("Read") && !m.GetParameters().Any()).GroupBy(m => m.ReturnType).ToDictionary(kv => kv.Key.Name, kv => kv.First());
         }
 
         // Position in the stream
@@ -35,7 +40,7 @@ namespace NoisyCowStudios.Bin2Object
 
         // Allows you to specify types which should be read as different types in the stream
         // Key: type in object; Value: type in stream
-        public Dictionary<Type, Type> PrimitiveMappings { get; } = new Dictionary<Type, Type>();
+        public Dictionary<string, Type> PrimitiveMappings { get; } = new Dictionary<string, Type>();
 
         public Endianness Endianness { get; set; }
 
@@ -130,30 +135,35 @@ namespace NoisyCowStudios.Bin2Object
             }
         }
 
+        private object ReadPrimitive(Type t) {
+
+            // Checked for mapped primitive types
+            if (PrimitiveMappings.TryGetValue(t.Name, out Type mapping)) {
+                var mappedReader = readMethodCache[mapping.Name];
+                var result = mappedReader.Invoke(this, null);
+                return Convert.ChangeType(result, t);
+            }
+
+            // Unmapped primitive (eliminating obj causes Visual Studio 16.3.5 to crash)
+            object obj = t.Name switch {
+                "Int64" => ReadInt64(),
+                "UInt64" => ReadUInt64(),
+                "Int32" => ReadInt32(),
+                "UInt32" => ReadUInt32(),
+                "Int16" => ReadInt16(),
+                "UInt16" => ReadUInt16(),
+                "Byte" => ReadByte(),
+                "Boolean" => ReadBoolean(),
+                _ => throw new ArgumentException("Unsupported primitive type specified: " + t.FullName)
+            };
+            return obj;
+        }
         public T ReadObject<T>() where T : new() {
+
             var type = typeof(T);
-            var ti = type.GetTypeInfo();
 
-            if (ti.IsPrimitive) {
-                // Checked for mapped primitive types
-                if ((from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == type.Name select m.Value).FirstOrDefault() is Type mapping) {
-                    var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping && !m.GetParameters().Any() select m).FirstOrDefault();
-                    return (T) Convert.ChangeType(mappedReader?.Invoke(this, null), typeof(T));
-                }
-
-                // Unmapped primitive (eliminating obj causes Visual Studio 16.3.5 to crash)
-                object obj = type.Name switch {
-                    "Int64" => ReadInt64(),
-                    "UInt64" => ReadUInt64(),
-                    "Int32" => ReadInt32(),
-                    "UInt32" => ReadUInt32(),
-                    "Int16" => ReadInt16(),
-                    "UInt16" => ReadUInt16(),
-                    "Byte" => ReadByte(),
-                    "Boolean" => ReadBoolean(),
-                    _ => throw new ArgumentException("Unsupported primitive type specified: " + type.FullName)
-                };
-				return (T) obj;
+            if (type.IsPrimitive) {
+                return (T) ReadPrimitive(type);
 			}
 
             var t = new T();
@@ -217,26 +227,7 @@ namespace NoisyCowStudios.Bin2Object
                 // Primitive type
                 // This is unnecessary but saves on many generic Invoke calls which are really slow
                 else if (i.FieldType.IsPrimitive) {
-                    // Checked for mapped primitive types
-                    var mapping = (from m in PrimitiveMappings where m.Key.GetTypeInfo().Name == i.FieldType.Name select m).FirstOrDefault();
-                    if (!mapping.Equals(default(KeyValuePair<Type,Type>))) {
-                        var mappedReader = (from m in GetType().GetMethods() where m.Name.StartsWith("Read") && m.ReturnType == mapping.Value && !m.GetParameters().Any() select m).FirstOrDefault();
-                        i.SetValue(t, Convert.ChangeType(mappedReader?.Invoke(this, null), mapping.Key));
-                    }
-                    else {
-                        // Unmapped primitive type
-                        i.SetValue(t, i.FieldType.Name switch {
-                            "Int64" => ReadInt64(),
-                            "UInt64" => ReadUInt64(),
-                            "Int32" => ReadInt32(),
-                            "UInt32" => ReadUInt32(),
-                            "Int16" => ReadInt16(),
-                            "UInt16" => ReadUInt16(),
-                            "Byte" => ReadByte(),
-                            "Boolean" => ReadBoolean(),
-                            _ => throw new ArgumentException("Unsupported primitive type specified: " + i.FieldType.FullName)
-                        });
-                    }
+                    i.SetValue(t, ReadPrimitive(i.FieldType));
                 }
 
                 // Object
