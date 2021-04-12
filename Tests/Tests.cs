@@ -62,6 +62,15 @@ namespace Tests
         public string version1And2Item;
     }
 
+    class TestObjectWithMultiVersioning
+    {
+        public byte a;
+        [Version(Min = 1, Max = 2)]
+        [Version(Min = 4)]
+        public byte b;
+        public byte c;
+    }
+
     class TestObjectWithPrimitiveMapping
     {
         public int int1;
@@ -258,6 +267,23 @@ namespace Tests
                     Assert.AreEqual((v == 1 ? "A" : null), obj.version1Item);
                     Assert.AreEqual((v >= 2 ? "A" : null), obj.version2AndHigherItem);
                     Assert.AreEqual((v < 3 ? "B" : null), obj.version1And2Item);
+                }
+        }
+
+        [Test]
+        public void TestObjectWithMultiVersioning() {
+            var testData = new byte[]
+                {0x01, 0x02, 0x03};
+
+            for (int v = 1; v <= 5; v++)
+                using (var stream = new MemoryStream(testData))
+                using (var reader = new BinaryObjectReader(stream)) {
+                    reader.Version = v;
+                    var obj = reader.ReadObject<TestObjectWithMultiVersioning>();
+
+                    Assert.AreEqual(0x01, obj.a);
+                    Assert.AreEqual(v != 3 ? 0x02 : 0x00, obj.b);
+                    Assert.AreEqual(v != 3 ? 0x03 : 0x02, obj.c);
                 }
         }
 
@@ -465,6 +491,33 @@ namespace Tests
             };
 
             for (int v = 1; v <= 3; v++)
+                using (var stream = new MemoryStream()) {
+                    using (var writer = new BinaryObjectWriter(stream)) {
+                        writer.Version = v;
+                        writer.WriteObject(testData);
+                    }
+                    var bytes = stream.ToArray();
+                    Assert.That(Enumerable.SequenceEqual(bytes, expected[v - 1]));
+                }
+        }
+
+        [Test]
+        public void TestWriterObjectWithMultiVersioning() {
+            var expected = new byte[][] {
+                new byte[] {0x01, 0x02, 0x03},
+                new byte[] {0x01, 0x02, 0x03},
+                new byte[] {0x01, 0x03},
+                new byte[] {0x01, 0x02, 0x03},
+                new byte[] {0x01, 0x02, 0x03},
+            };
+
+            var testData = new TestObjectWithMultiVersioning {
+                a = 0x01,
+                b = 0x02,
+                c = 0x03
+            };
+
+            for (int v = 1; v <= 5; v++)
                 using (var stream = new MemoryStream()) {
                     using (var writer = new BinaryObjectWriter(stream)) {
                         writer.Version = v;

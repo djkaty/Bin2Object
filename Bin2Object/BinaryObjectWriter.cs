@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2020 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
+﻿// Copyright (c) 2021 Katy Coe - http://www.djkaty.com - https://github.com/djkaty/Bin2Object/
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace NoisyCowStudios.Bin2Object
         private Dictionary<string, MethodInfo> writeObjectGenericCache = new Dictionary<string, MethodInfo>();
 
         // VersionAttribute cache to dramatically speed up repeated calls to ReadObject<T> with the same T
-        private Dictionary<Type, Dictionary<FieldInfo, (double Min, double Max)>> writeObjectVersionCache = new Dictionary<Type, Dictionary<FieldInfo, (double, double)>>();
+        private Dictionary<Type, Dictionary<FieldInfo, List<(double Min, double Max)>>> writeObjectVersionCache = new Dictionary<Type, Dictionary<FieldInfo, List<(double, double)>>>();
 
         // Thread synchronization objects (for thread safety)
         private object writeLock = new object();
@@ -172,21 +172,17 @@ namespace NoisyCowStudios.Bin2Object
             }
 
             // First time caching
-            if (!writeObjectVersionCache.TryGetValue(type, out var cachedFields)) {
-                var fields = new Dictionary<FieldInfo, (double, double)>();
+            if (!writeObjectVersionCache.ContainsKey(type)) {
+                var fields = new Dictionary<FieldInfo, List<(double, double)>>();
                 foreach (var i in type.GetFields())
-                    if (i.GetCustomAttribute<VersionAttribute>(false) is VersionAttribute versionAttr)
-                        fields.Add(i, (versionAttr.Min, versionAttr.Max));
-                    else
-                        fields.Add(i, (-1, -1));
+                    fields.Add(i, i.GetCustomAttributes<VersionAttribute>(false).Select(v => (v.Min, v.Max)).ToList());
+                
                 writeObjectVersionCache.Add(type, fields);
             }
 
-            foreach (var (i, version) in writeObjectVersionCache[type]) {
-                // Only process fields for our selected object versioning
-                if (version.Min != -1 && version.Min > Version)
-                    continue;
-                if (version.Max != -1 && version.Max < Version)
+            foreach (var (i, versions) in writeObjectVersionCache[type]) {
+                // Only process fields for our selected object versioning (always process if none supplied)
+                if (versions.Any() && !versions.Any(v => (v.Min <= Version || v.Min == -1) && (v.Max >= Version || v.Max == -1)))
                     continue;
 
                 // String
