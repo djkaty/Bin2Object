@@ -174,10 +174,24 @@ namespace NoisyCowStudios.Bin2Object
 
             // Iterate source fields            
             foreach (var f in fromType.GetFields()) {
-
                 // Find target field with matching name - ignore the rest
                 if (toTypeFields.FirstOrDefault(tf => tf.Name == f.Name) is FieldInfo targetField) {
-                    targetField.SetValue(t, Convert.ChangeType(f.GetValue(from), targetField.FieldType));
+                    if (!targetField.FieldType.IsPrimitive && ObjectMappings.TryGetValue(targetField.FieldType, out var objType))
+                    {
+                        var mappedParam = f.GetValue(from);
+                        if (mappedParam != null)
+                        {
+                            var methodInfo = GetType().GetMethod("MapObject", BindingFlags.NonPublic | BindingFlags.Instance);
+                            var method = methodInfo!.MakeGenericMethod(targetField.FieldType);
+                            var mapped = method.Invoke(this, new[] {mappedParam});
+                        
+                            targetField.SetValue(t, mapped);
+                        }
+                    }
+                    else
+                    {
+                        targetField.SetValue(t, Convert.ChangeType(f.GetValue(from), targetField.FieldType));
+                    }
                 }
             }
             return t;
