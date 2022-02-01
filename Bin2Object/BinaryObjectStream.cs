@@ -91,6 +91,11 @@ namespace NoisyCowStudios.Bin2Object
         public string ReadNullTerminatedString(Encoding encoding = null) => Reader.ReadNullTerminatedString(encoding);
         public string ReadFixedLengthString(long addr, int length, Encoding encoding = null) => Reader.ReadFixedLengthString(addr, length, encoding);
         public string ReadFixedLengthString(int length, Encoding encoding = null) => Reader.ReadFixedLengthString(length, encoding);
+        
+        public int ReadUnityCompressedInt(long addr, out int bytesRead) => Reader.ReadUnityCompressedInt(addr, out bytesRead);
+        public int ReadUnityCompressedInt(out int bytesRead) => Reader.ReadUnityCompressedInt(-1, out bytesRead);
+        public uint ReadUnityCompressedUInt(long addr, out int bytesRead) => Reader.ReadUnityCompressedUInt(addr, out bytesRead);
+        public uint ReadUnityCompressedUInt(out int bytesRead) => Reader.ReadUnityCompressedUInt(-1, out bytesRead);
 
         public void WriteEndianBytes(byte[] bytes) => Writer.WriteEndianBytes(bytes);
         public void Write(long int64) => Writer.Write(int64);
