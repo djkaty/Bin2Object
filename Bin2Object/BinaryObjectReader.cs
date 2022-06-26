@@ -364,7 +364,7 @@ namespace NoisyCowStudios.Bin2Object
 
         public uint ReadUnityCompressedUInt(long addr, out int bytesRead) {
             lock (readLock) {
-                if(Position >= 0)
+                if(addr >= 0)
                     Position = addr;
 
                 //Read first byte
