@@ -59,7 +59,7 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         public override long ReadInt64() => BitConverter.ToInt64(ReadBytes(8), 0);
-        
+
         public override ulong ReadUInt64() => BitConverter.ToUInt64(ReadBytes(8), 0);
 
         public override int ReadInt32() => BitConverter.ToInt32(ReadBytes(4), 0);
@@ -141,7 +141,6 @@ namespace NoisyCowStudios.Bin2Object
         }
 
         private object ReadPrimitive(Type t) {
-
             // Checked for mapped primitive types
             if (PrimitiveMappings.TryGetValue(t.Name, out Type mapping)) {
                 var mappedReader = readMethodCache[mapping.Name];
@@ -174,23 +173,22 @@ namespace NoisyCowStudios.Bin2Object
 
             // Iterate source fields            
             foreach (var f in fromType.GetFields()) {
-
                 // Find target field with matching name - ignore the rest
                 if (toTypeFields.FirstOrDefault(tf => tf.Name == f.Name) is FieldInfo targetField) {
                     targetField.SetValue(t, Convert.ChangeType(f.GetValue(from), targetField.FieldType));
                 }
             }
+
             return t;
         }
 
         public T ReadObject<T>() where T : new() {
-
             var type = typeof(T);
 
             // Object is actually a primitive
             if (type.IsPrimitive) {
                 return (T) ReadPrimitive(type);
-			}
+            }
 
             // Check for object mapping
             if (ObjectMappings.TryGetValue(type, out var streamType)) {
@@ -199,6 +197,7 @@ namespace NoisyCowStudios.Bin2Object
                     mi2 = us.MakeGenericMethod(streamType);
                     readObjectGenericCache.Add(streamType.FullName, mi2);
                 }
+
                 var obj = mi2.Invoke(this, null);
 
                 return MapObject<T>(obj);
@@ -211,7 +210,7 @@ namespace NoisyCowStudios.Bin2Object
                 var fields = new Dictionary<FieldInfo, List<(double, double)>>();
                 foreach (var i in type.GetFields())
                     if (i.GetCustomAttribute<SkipWhenReadingAttribute>(false) is SkipWhenReadingAttribute)
-                        fields.Add(i, new List<(double, double)> { (-2, -2) });
+                        fields.Add(i, new List<(double, double)> {(-2, -2)});
                     else
                         fields.Add(i, i.GetCustomAttributes<VersionAttribute>(false).Select(v => (v.Min, v.Max)).ToList());
 
@@ -244,13 +243,13 @@ namespace NoisyCowStudios.Bin2Object
                 // Array
                 else if (i.FieldType.IsArray) {
                     var attr = i.GetCustomAttribute<ArrayLengthAttribute>(false) ??
-                        throw new InvalidOperationException("Array field " + i.Name + " must have ArrayLength attribute");
+                               throw new InvalidOperationException("Array field " + i.Name + " must have ArrayLength attribute");
 
                     int lengthPrimitive;
 
                     if (attr.FieldName != null) {
                         var field = type.GetField(attr.FieldName) ??
-                            throw new ArgumentException("Array field " + i.Name + " has invalid FieldName in ArrayLength attribute");
+                                    throw new ArgumentException("Array field " + i.Name + " has invalid FieldName in ArrayLength attribute");
                         lengthPrimitive = Convert.ToInt32(field.GetValue(t));
                     }
                     else if (attr.FixedSize > 0) {
@@ -262,7 +261,7 @@ namespace NoisyCowStudios.Bin2Object
 
                     var us = GetType().GetMethod("ReadArray", new[] {typeof(int)});
                     var mi2 = us.MakeGenericMethod(i.FieldType.GetElementType());
-                    i.SetValue(t, mi2.Invoke(this, new object[] { lengthPrimitive }));
+                    i.SetValue(t, mi2.Invoke(this, new object[] {lengthPrimitive}));
                 }
 
                 // Primitive type
@@ -278,9 +277,11 @@ namespace NoisyCowStudios.Bin2Object
                         mi2 = us.MakeGenericMethod(i.FieldType);
                         readObjectGenericCache.Add(i.FieldType.FullName, mi2);
                     }
+
                     i.SetValue(t, mi2.Invoke(this, null));
                 }
             }
+
             return t;
         }
 
@@ -297,7 +298,8 @@ namespace NoisyCowStudios.Bin2Object
             if (!typeof(T).IsPrimitive) {
                 for (int i = 0; i < count; i++)
                     t[i] = ReadObject<T>();
-            } else {
+            }
+            else {
                 var type = typeof(T);
 
                 // Checked for mapped primitive types
@@ -306,7 +308,8 @@ namespace NoisyCowStudios.Bin2Object
 
                     for (var i = 0; i < count; i++)
                         t[i] = (T) Convert.ChangeType(mappedReader.Invoke(this, null), type);
-                } else {
+                }
+                else {
                     // Unmapped primitive (eliminating obj causes Visual Studio 16.3.5 to crash)
                     for (var i = 0; i < count; i++)
                         t[i] = (T) (type.Name switch {
@@ -322,6 +325,7 @@ namespace NoisyCowStudios.Bin2Object
                         });
                 }
             }
+
             return t;
         }
 
@@ -356,6 +360,66 @@ namespace NoisyCowStudios.Bin2Object
                 else
                     bytes.Add(c);
             return encoding?.GetString(bytes.ToArray()) ?? Encoding.GetString(bytes.ToArray());
+        }
+
+        public uint ReadUnityCompressedUInt(long addr, out int bytesRead) {
+            lock (readLock) {
+                if(addr >= 0)
+                    Position = addr;
+
+                //Read first byte
+                byte b = ReadByte();
+                bytesRead = 1;
+                if (b < 128)
+                    return b;
+                
+                switch (b) {
+                    case 240:
+                        //Upper four bits set, lower four not => read full uint
+                        bytesRead = 5;
+                        return ReadUInt32();
+                    case byte.MaxValue:
+                        //All 8 bits set => max uint
+                        return uint.MaxValue;
+                    case 254:
+                        //Upper 7 bits set => max uint - 1
+                        return uint.MaxValue - 1;
+                    case { } when (b & 192) == 192:
+                        //Upper two bits set => read three more bytes
+                        bytesRead = 4;
+                        return (b & ~192U) << 24 | (uint) (ReadByte() << 16) | (uint) (ReadByte() << 8) | ReadByte();
+                    case {} when (b & 128) == 128:
+                        //Upper bit set => read one more byte
+                        bytesRead = 2;
+                        return (b & ~128U) << 8 | ReadByte();
+                    default:
+                        //This case shouldn't be possible - if the top bit isn't set then we returned further up,
+                        //And any other scenario where the top bit is set is covered by the above
+                        throw new Exception($"Invalid compressed int first byte {b}");
+                }
+            }
+        }
+
+        public int ReadUnityCompressedInt(long addr, out int bytesRead) {
+            //Basically just read as a uint then translate one special value and handle negatives
+            uint unsigned = ReadUnityCompressedUInt(addr, out bytesRead);
+
+            if (unsigned == uint.MaxValue)
+                //Max uint just becomes max int
+                return int.MaxValue;
+            
+            //*Lowest* bit is sign bit, not highest - gotta admit this is pretty clever
+            bool isNegative = (unsigned & 1) == 1;
+            
+            //Discard sign bit
+            unsigned >>= 1;
+            
+            if (isNegative)
+                //Negative values are offset by 1 so that minint can be stored
+                return -(int) (unsigned + 1);
+
+            //Positive values - just cast as int
+            return (int) unsigned;
         }
     }
 }
